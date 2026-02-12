@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Overwatch Dashboard | Tactical HUD</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Socket.io -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap"
+        rel="stylesheet">
+
+    <style>
+        :root {
+            --overwatch-red: #ff4136;
+            --overwatch-cyan: #00f3ff;
+            --overwatch-bg: #0a0a0f;
+            --overwatch-card: #15151e;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--overwatch-bg);
+            color: #e0e0e0;
+            overflow: hidden;
+        }
+
+        .hud-font {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        #map {
+            height: 100vh;
+            width: 100%;
+            background: #000;
+        }
+
+        .sidebar {
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(12px);
+            border-left: 1px solid rgba(0, 243, 255, 0.2);
+            box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .incident-card {
+            background: var(--overwatch-card);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s ease;
+        }
+
+        .incident-card:hover {
+            border-color: var(--overwatch-cyan);
+            transform: translateX(-4px);
+        }
+
+        .priority-high {
+            border-left: 4px solid var(--overwatch-red);
+            background: linear-gradient(90deg, rgba(255, 65, 54, 0.1) 0%, rgba(21, 21, 30, 1) 100%);
+        }
+
+        .pulse-red {
+            border-radius: 50%;
+            background: var(--overwatch-red);
+            cursor: pointer;
+            box-shadow: 0 0 0 rgba(255, 65, 54, 0.4);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255, 65, 54, 0.7);
+            }
+
+            70% {
+                box-shadow: 0 0 0 20px rgba(255, 65, 54, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 65, 54, 0);
+            }
+        }
+
+        /* Leaflet Overrides */
+        .leaflet-container {
+            background: var(--overwatch-bg) !important;
+        }
+
+        .leaflet-tile {
+            filter: brightness(0.6) invert(1) contrast(3) hue-rotate(180deg) saturate(0.3);
+        }
+
+        .leaflet-control-zoom {
+            border: none !important;
+        }
+
+        .leaflet-control-zoom-in,
+        .leaflet-control-zoom-out {
+            background: var(--overwatch-card) !important;
+            color: var(--overwatch-cyan) !important;
+            border: 1px solid rgba(0, 243, 255, 0.3) !important;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="flex h-screen w-screen overflow-hidden">
+        <!-- Main Map Area -->
+        <main class="flex-grow relative">
+            <div id="map"></div>
+
+            <!-- HUD Overlay Tools -->
+            <div class="absolute top-6 left-6 z-[1000] space-y-4">
+                <div class="bg-black/80 backdrop-blur-md p-4 border border-cyan-500/30 rounded-lg pointer-events-auto">
+                    <h1 class="hud-font text-2xl font-bold text-cyan-400 tracking-wider uppercase">Ultron HUD</h1>
+                    <div class="flex items-center gap-3 mt-2">
+                        <span id="system-status-dot" class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
+                        <span id="system-status-text"
+                            class="text-xs font-semibold text-gray-400 uppercase tracking-widest">System Online</span>
+                    </div>
+                </div>
+
+                <!-- Agent Intelligence Status -->
+                <div
+                    class="bg-black/60 backdrop-blur-sm p-3 border-l-4 border-cyan-500 rounded-r-lg pointer-events-auto">
+                    <div class="flex items-center justify-between gap-4">
+                        <span class="hud-font text-[10px] text-cyan-300 uppercase tracking-widest">Reasoning
+                            Engine</span>
+                        <span id="agent-pulse" class="text-[9px] text-green-400 font-mono">READY</span>
+                    </div>
+                    <div class="w-full bg-gray-900 h-1 mt-2 rounded-full overflow-hidden">
+                        <div id="processing-bar" class="w-full bg-cyan-500 h-full transition-all duration-300"></div>
+                    </div>
+                </div>
+
+                <!-- Emergency Override Button -->
+                <button id="override-btn"
+                    class="pointer-events-auto w-full group relative px-6 py-4 bg-red-900/40 border-2 border-red-500/50 hover:bg-red-600/60 hover:border-red-400 transition-all duration-300 rounded-lg overflow-hidden ring-4 ring-transparent hover:ring-red-500/20 active:scale-95">
+                    <div class="relative z-10 flex flex-col items-center">
+                        <span
+                            class="hud-font text-xl font-black text-red-500 group-hover:text-white transition-colors tracking-[0.2em] mb-1">EMERGENCY
+                            OVERRIDE</span>
+                        <span
+                            class="text-[8px] font-bold text-red-400/60 group-hover:text-red-200 tracking-widest uppercase">Protocol:
+                            Road Clearance Alpha</span>
+                    </div>
+                    <div
+                        class="absolute inset-0 bg-gradient-to-r from-transparent via-red-500/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000">
+                    </div>
+                </button>
+            </div>
+
+            <!-- Traffic Control Active Banner -->
+            <div id="traffic-control-alert"
+                class="hidden absolute top-0 left-0 w-full bg-red-600/90 text-white hud-font py-2 text-center text-sm font-bold tracking-[0.5em] animate-bounce z-[2000] border-b-2 border-white/50">
+                TRAFFIC CONTROL ACTIVE - CLEARING PATHWAYS
+            </div>
+        </main>
+
+        <!-- Sidebar -->
+        <aside class="sidebar w-96 flex flex-col h-full z-[1100]">
+            <div class="p-6 border-b border-white/5">
+                <h2 class="hud-font text-lg font-bold text-gray-300 uppercase tracking-widest">Incident Feed</h2>
+                <p class="text-[10px] text-cyan-500 leading-none mt-1">Real-time Data Stream Enabled</p>
+            </div>
+
+            <div id="incident-list" class="flex-grow overflow-y-auto p-4 space-y-4 scroll-smooth">
+                <!-- Data injected here -->
+                <div class="text-center py-20 opacity-30 italic text-sm">
+                    Awaiting tactical data...
+                </div>
+            </div>
+
+            <div class="p-4 bg-black/40 border-t border-white/5 text-[10px] text-gray-500">
+                <div class="flex justify-between uppercase">
+                    <span>Protocol: Genesis</span>
+                    <span id="timestamp">--:--:--</span>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        // --- Initialization ---
+        const map = L.map('map', {
+            zoomControl: true,
+            attributionControl: false
+        }).setView([13.7563, 100.5018], 12);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        const markerGroup = L.layerGroup().addTo(map);
+        const incidentList = document.getElementById('incident-list');
+        let lastIncidentCoords = [13.7563, 100.5018];
+        let activeRoute = null;
+
+        // --- Instant Intel: Fetch History ---
+        async function fetchHistory() {
+            setAgentStatus('FETCHING HISTORY...', 'bg-yellow-500');
+            try {
+                const response = await fetch('http://localhost:3000/incidents');
+                const incidents = await response.json();
+                incidents.reverse().forEach(handleNewIncident);
+                setAgentStatus('READY', 'bg-green-500');
+            } catch (err) {
+                console.error('History fetch failed:', err);
+                setAgentStatus('LIVE ONLY', 'bg-red-500');
+            }
+        }
+
+        function setAgentStatus(status, barColor) {
+            document.getElementById('agent-pulse').innerText = status;
+            document.getElementById('processing-bar').className = `h-full transition-all duration-300 ${barColor}`;
+        }
+
+        window.onload = fetchHistory;
+
+        // --- Utils ---
+        function getRandomBKK() {
+            const lat = 13.6 + (Math.random() * 0.3);
+            const lng = 100.3 + (Math.random() * 0.4);
+            const coords = [lat, lng];
+            lastIncidentCoords = coords;
+            return coords;
+        }
+
+        // --- Emergency Override Logic ---
+        const overrideBtn = document.getElementById('override-btn');
+        const alertBanner = document.getElementById('traffic-control-alert');
+        let overrideActive = false;
+
+        overrideBtn.addEventListener('click', () => {
+            overrideActive = !overrideActive;
+
+            if (overrideActive) {
+                // Activate Override
+                alertBanner.classList.remove('hidden');
+                document.body.style.filter = 'contrast(1.2) brightness(0.8)';
+
+                // Draw Neon Route from a "Base" (Grand Palace area) to last incident
+                const baseCoords = [13.7511, 100.4927];
+                activeRoute = L.polyline([baseCoords, lastIncidentCoords], {
+                    color: '#39ff14', // Neon Green
+                    weight: 8,
+                    opacity: 0.8,
+                    dashArray: '20, 20',
+                    dashOffset: '0'
+                }).addTo(map);
+
+                // Animate dash offset
+                let offset = 0;
+                const animateRoute = () => {
+                    if (!overrideActive) return;
+                    offset -= 2;
+                    activeRoute.setStyle({ dashOffset: offset });
+                    requestAnimationFrame(animateRoute);
+                };
+                animateRoute();
+
+                map.flyTo(lastIncidentCoords, 14);
+            } else {
+                // Deactivate Override
+                alertBanner.classList.add('hidden');
+                document.body.style.filter = '';
+                if (activeRoute) {
+                    map.removeLayer(activeRoute);
+                    activeRoute = null;
+                }
+            }
+        });
+
+        function updateClock() {
+            document.getElementById('timestamp').innerText = new Date().toLocaleTimeString();
+        }
+        setInterval(updateClock, 1000);
+
+        function createCustomIcon(priority) {
+            const size = priority === 'HIGH' ? 24 : 16;
+            const className = priority === 'HIGH' ? 'pulse-red' : '';
+            const color = priority === 'HIGH' ? '#ff4136' : '#00f3ff';
+
+            return L.divIcon({
+                className: `custom-marker ${className}`,
+                html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5)"></div>`,
+                iconSize: [size, size],
+                iconAnchor: [size / 2, size / 2]
+            });
+        }
+
+        // --- WebSocket Connection ---
+        const socket = io('http://localhost:3001');
+
+        socket.on('connect', () => {
+            console.log('📡 Connected to Overwatch (Port 3001)');
+        });
+
+        socket.on('new_incident_alert', (incident) => {
+            console.log('⚠️ NEW INCIDENT ALERT:', incident);
+            handleNewIncident(incident);
+        });
+
+        socket.on('connect_error', (err) => {
+            console.error('❌ Socket Connection Error:', err);
+        });
+
+        // --- Logic ---
+        function handleNewIncident(incident) {
+            setAgentStatus('PROCESSING...', 'bg-cyan-500 w-1/2');
+
+            const hasCoords = incident.latitude !== undefined && incident.latitude !== null &&
+                incident.longitude !== undefined && incident.longitude !== null;
+
+            const coords = hasCoords
+                ? [parseFloat(incident.latitude), parseFloat(incident.longitude)]
+                : getRandomBKK();
+
+            lastIncidentCoords = coords;
+
+            // 1. Add Marker
+            const marker = L.marker(coords, {
+                icon: createCustomIcon(incident.priority)
+            }).addTo(markerGroup);
+
+            const popupHtml = `
+                <div class="p-3 max-w-[200px]">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-600 uppercase">
+                            ${incident.type || 'General'}
+                        </span>
+                        <span class="text-[8px] text-gray-400 font-mono">${new Date(incident.createdAt).toLocaleTimeString()}</span>
+                    </div>
+                    <p class="text-xs font-bold text-gray-800 mb-2">${incident.text}</p>
+                    <div class="mt-2 pt-2 border-t border-gray-100">
+                        <div class="text-[9px] font-bold text-green-600 uppercase mb-1">🏥 Recommended Dispatch</div>
+                        <div class="text-[10px] font-black text-gray-900">${incident.recommendedHospital || 'N/A'}</div>
+                        <p class="text-[8px] text-gray-500 mt-1 italic">${incident.hospitalReasoning || 'Calculating hospital availability...'}</p>
+                    </div>
+                </div>
+            `;
+            marker.bindPopup(popupHtml);
+
+            if (incident.priority === 'HIGH') {
+                marker.openPopup();
+                map.flyTo(coords, 14, { duration: 1 });
+            }
+
+            // 2. Sidebar Update
+            const card = document.createElement('div');
+            card.className = `incident-card p-4 rounded-lg shadow-lg relative ${incident.priority === 'HIGH' ? 'priority-high' : ''}`;
+            card.innerHTML = `
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-white/10 uppercase tracking-tighter text-cyan-400">
+                        ${incident.type || 'GENERAL'}
+                    </span>
+                    <span class="text-[9px] text-gray-500 font-mono">${new Date(incident.createdAt).toLocaleTimeString()}</span>
+                </div>
+                <p class="text-xs text-gray-200 line-clamp-2 mb-2 font-medium">${incident.text}</p>
+                <div class="mt-2 p-2 bg-black/30 rounded border border-white/5">
+                    <div class="text-[8px] text-green-400 font-bold uppercase mb-1 flex items-center gap-1">
+                        <span class="w-1 h-1 bg-green-400 rounded-full animate-pulse"></span>
+                        Smart Dispatch
+                    </div>
+                    <div class="text-[10px] text-white truncate font-bold">${incident.recommendedHospital || 'N/A'}</div>
+                </div>
+            `;
+
+            if (incidentList.firstChild && incidentList.firstChild.nodeType === 3) {
+                incidentList.innerHTML = '';
+            }
+            incidentList.insertBefore(card, incidentList.firstChild);
+
+            setTimeout(() => {
+                setAgentStatus('READY', 'bg-green-500 w-full');
+            }, 800);
+        }
+    </script>
+</body>
+
+</html>
