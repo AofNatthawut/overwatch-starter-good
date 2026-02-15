@@ -28,13 +28,17 @@
                     },
                     colors: {
                         cyber: {
-                            bg: '#050a10',
-                            panel: '#0a1420',
-                            border: '#1a2b3c',
+                            bg: '#0f172a',
+                            panel: 'rgba(30, 41, 59, 0.7)',
+                            border: 'rgba(255, 255, 255, 0.1)',
                             accent: '#00f2ff',
-                            danger: '#ff2e2e',
+                            danger: '#ff4d4d',
                             warning: '#ffcc00',
+                            glass: 'rgba(255, 255, 255, 0.03)',
                         }
+                    },
+                    backdropBlur: {
+                        xs: '2px',
                     }
                 }
             }
@@ -43,18 +47,25 @@
 
     <style>
         body {
-            background-color: #050a10;
-            color: #e2e8f0;
+            background-color: #0c1117;
+            color: #f1f5f9;
         }
 
         #map {
             height: 100vh;
             width: 100%;
-            filter: invert(1) hue-rotate(180deg) brightness(0.8) contrast(1.2);
+            filter: invert(1) hue-rotate(180deg) brightness(1.2) contrast(1.1) grayscale(0.3);
+        }
+
+        .glass-panel {
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            background-color: rgba(15, 23, 42, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.125);
         }
 
         .custom-scrollbar::-webkit-scrollbar {
-            width: 4px;
+            width: 3px;
         }
 
         .custom-scrollbar::-webkit-scrollbar-track {
@@ -62,110 +73,154 @@
         }
 
         .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #1a2b3c;
+            background: rgba(255, 255, 255, 0.1);
             border-radius: 10px;
         }
 
-        @keyframes pulse-red {
+        @keyframes pulse-ring {
             0% {
-                box-shadow: 0 0 0 0 rgba(255, 46, 46, 0.7);
+                transform: scale(0.33);
+                opacity: 1;
             }
 
-            70% {
-                box-shadow: 0 0 0 10px rgba(255, 46, 46, 0);
-            }
-
+            80%,
             100% {
-                box-shadow: 0 0 0 0 rgba(255, 46, 46, 0);
+                transform: scale(1.2);
+                opacity: 0;
             }
         }
 
         .pulse-marker {
-            animation: pulse-red 2s infinite;
+            position: relative;
+            width: 12px;
+            height: 12px;
+            background-color: #ff4d4d;
             border-radius: 50%;
-            background: #ff2e2e;
+            box-shadow: 0 0 10px rgba(255, 77, 77, 0.5);
+        }
+
+        .pulse-marker::after {
+            content: '';
+            position: absolute;
+            top: -100%;
+            left: -100%;
+            width: 300%;
+            height: 300%;
+            border-radius: 50%;
+            border: 2px solid #ff4d4d;
+            animation: pulse-ring 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
         }
 
         /* Emergency Mode Effects */
-        .emergency-active {
-            filter: contrast(1.5) brightness(1.1) saturate(1.2);
+        .emergency-active #map {
+            filter: invert(1) hue-rotate(180deg) brightness(1.1) contrast(1.4) saturate(1.5);
         }
 
         .emergency-banner {
-            background: repeating-linear-gradient(45deg,
-                    #ff2e2e,
-                    #ff2e2e 10px,
-                    #000 10px,
-                    #000 20px);
+            background: linear-gradient(90deg, #ff4d4d 0%, #000 50%, #ff4d4d 100%);
+            background-size: 200% 100%;
+            animation: banner-move 3s linear infinite;
         }
 
-        @keyframes slide-down {
-            from {
-                transform: translateY(-100%);
+        @keyframes banner-move {
+            0% {
+                background-position: 200% 0;
             }
 
-            to {
-                transform: translateY(0);
+            100% {
+                background-position: 0 0;
             }
+        }
+
+        .incident-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .incident-card:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            transform: translateX(4px);
         }
     </style>
 </head>
 
 <body class="overflow-hidden font-sans transition-all duration-500">
 
-    <!-- Emergency Banner (Hidden by default) -->
+    <!-- Emergency Banner -->
     <div id="emergency-banner"
-        class="fixed top-14 left-0 right-0 h-8 z-[1001] hidden animate-[slide-down_0.5s_ease-out] emergency-banner flex items-center justify-center border-b border-white/20">
-        <span class="font-tactical text-[10px] font-bold text-white tracking-[0.3em]">CRITICAL ALERT: TRAFFIC CONTROL
-            ACTIVE - EMERGENCY OVERRIDE ENABLED</span>
+        class="fixed top-14 left-0 right-0 h-8 z-[1001] hidden flex items-center justify-center border-b border-white/20 shadow-2xl emergency-banner">
+        <span class="font-tactical text-[10px] font-bold text-white tracking-[0.4em]">CRITICAL: EMERGENCY OVERRIDE
+            ACTIVE</span>
     </div>
 
-    <!-- Top Status Bar -->
-    <div
-        class="fixed top-0 left-0 right-0 h-14 bg-cyber-panel border-b border-cyber-border z-[1000] flex items-center justify-between px-6">
-        <div class="flex items-center gap-4">
-            <h1 class="font-tactical text-xl font-bold tracking-widest text-cyber-accent">OVERWATCH</h1>
-            <div class="h-4 w-[1px] bg-cyber-border"></div>
-            <div id="connection-status" class="flex items-center gap-2 text-xs text-gray-400">
-                <span class="h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
-                OFFLINE
-            </div>
-        </div>
+    <!-- Top Navigation Bar -->
+    <header
+        class="fixed top-0 left-0 right-0 h-14 glass-panel z-[1002] flex items-center justify-between px-8 border-none">
         <div class="flex items-center gap-6">
-            <button id="override-btn"
-                class="bg-cyber-danger/20 hover:bg-cyber-danger/40 border border-cyber-danger text-cyber-danger px-4 py-1 text-[10px] font-tactical tracking-tighter transition-all hover:scale-105 active:scale-95 group relative overflow-hidden">
-                <span class="relative z-10">EMERGENCY OVERRIDE</span>
-                <div class="absolute inset-0 bg-cyber-danger animate-pulse opacity-20"></div>
-            </button>
-            <div class="text-xs font-tactical text-gray-500">
-                SYSTEM VERSION: 1.0.4 - SOVEREIGN AI
+            <div class="flex flex-col">
+                <h1 class="font-tactical text-lg font-bold tracking-[0.2em] text-white">OVERWATCH</h1>
+                <div class="flex items-center gap-2">
+                    <span id="connection-dot"
+                        class="h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
+                    <span id="connection-status" class="text-[9px] font-tactical text-gray-400 tracking-wider">SYSTEM
+                        OFFLINE</span>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Main Content -->
-    <main class="flex h-screen pt-14">
-        <!-- Sidebar -->
-        <aside class="w-80 bg-cyber-panel border-r border-cyber-border flex flex-col z-[1000]">
-            <div class="p-4 border-b border-cyber-border bg-cyber-bg/50">
-                <h2 class="font-tactical text-xs font-semibold text-gray-400 uppercase tracking-widest">Incident
-                    Logistics</h2>
+        <div class="flex items-center gap-8">
+            <button id="override-btn"
+                class="bg-cyber-danger/10 hover:bg-cyber-danger/30 border border-cyber-danger/50 text-cyber-danger px-6 py-1.5 text-[10px] font-tactical tracking-widest transition-all rounded-sm backdrop-blur-sm">
+                EMERGENCY OVERRIDE
+            </button>
+            <div class="flex flex-col items-end">
+                <span class="text-[9px] font-tactical text-cyber-accent opacity-70">SOVEREIGN AI</span>
+                <span class="text-[9px] font-tactical text-gray-500">v1.1.0-ALPHA</span>
             </div>
-            <div id="incident-list" class="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
-                <!-- Incidents will appear here -->
-                <p class="text-xs text-center text-gray-600 italic">Awaiting neural feed...</p>
+        </div>
+    </header>
+
+    <!-- UI Core Layout -->
+    <main class="flex h-screen pt-14 bg-[#0c1117]">
+        <!-- Tactical Sidebar -->
+        <aside class="w-80 glass-panel border-y-0 border-l-0 z-[1001] flex flex-col shadow-2xl">
+            <div class="p-5 border-b border-white/5 flex items-center justify-between">
+                <h2 class="font-tactical text-[10px] font-semibold text-cyber-accent tracking-[0.2em] uppercase">
+                    Tactical Feed</h2>
+                <div class="flex gap-1">
+                    <div class="h-1 w-1 bg-cyber-accent rounded-full animate-pulse"></div>
+                    <div class="h-1 w-1 bg-cyber-accent rounded-full animate-pulse [animation-delay:200ms]"></div>
+                    <div class="h-1 w-1 bg-cyber-accent rounded-full animate-pulse [animation-delay:400ms]"></div>
+                </div>
+            </div>
+            <div id="incident-list" class="flex-1 overflow-y-auto custom-scrollbar p-0">
+                <!-- Incidents injected here -->
+                <div class="flex flex-col items-center justify-center h-full opacity-20 filter grayscale">
+                    <div class="font-tactical text-[10px] mt-4 tracking-widest">Awaiting Link...</div>
+                </div>
             </div>
         </aside>
 
-        <!-- Map Area -->
-        <section class="flex-1 relative">
+        <!-- Dynamic Observation Area -->
+        <section class="flex-1 relative overflow-hidden">
             <div id="map"></div>
 
-            <!-- Map HUD -->
-            <div class="absolute bottom-6 right-6 z-[1000] flex flex-col gap-2">
-                <div class="bg-cyber-panel/80 border border-cyber-border p-3 backdrop-blur-md">
-                    <div class="text-[10px] font-tactical text-cyber-accent mb-1 uppercase">Tactical Grid</div>
-                    <div class="text-xs text-gray-400">BANGKOK SECTOR: 13.75 - 100.50</div>
+            <!-- HUD Elements -->
+            <div class="absolute top-6 right-6 z-[1000] flex flex-col gap-3">
+                <div class="glass-panel p-4 rounded-sm border-white/5 min-w-[180px]">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[9px] font-tactical text-white/40 tracking-widest">SECTOR</span>
+                        <span class="text-[9px] font-tactical text-cyber-accent">BK-01</span>
+                    </div>
+                    <div class="text-[11px] font-tactical text-white tracking-widest">BANGKOK METROPOLIS</div>
+                </div>
+            </div>
+
+            <!-- Coordinate HUD -->
+            <div class="absolute bottom-6 left-6 z-[1000]">
+                <div class="glass-panel px-4 py-2 rounded-sm border-white/5 flex items-center gap-3">
+                    <div class="h-2 w-2 bg-cyber-accent rounded-full animate-pulse"></div>
+                    <span id="coords-hud" class="font-tactical text-[10px] text-white/60 tracking-tighter">GRID: 13.756°
+                        N / 100.501° E</span>
                 </div>
             </div>
         </section>
@@ -188,24 +243,26 @@
         const socket = io('http://localhost:3001');
         const incidentList = document.getElementById('incident-list');
         const statusEl = document.getElementById('connection-status');
+        const statusDot = document.getElementById('connection-dot');
         const overrideBtn = document.getElementById('override-btn');
         const bannerEl = document.getElementById('emergency-banner');
 
         // --- Socket Events ---
         socket.on('connect', () => {
-            statusEl.innerHTML = '<span class="h-2 w-2 rounded-full bg-green-500"></span> ONLINE';
-            statusEl.classList.remove('text-red-500');
-            statusEl.classList.add('text-green-500');
+            statusEl.innerText = 'SYSTEM ONLINE';
+            statusDot.className = 'h-1.5 w-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]';
+            statusEl.classList.remove('text-gray-400');
+            statusEl.classList.add('text-cyber-accent');
         });
 
         socket.on('disconnect', () => {
-            statusEl.innerHTML = '<span class="h-2 w-2 rounded-full bg-red-500 animate-pulse"></span> OFFLINE';
-            statusEl.classList.remove('text-green-500');
-            statusEl.classList.add('text-red-500');
+            statusEl.innerText = 'SYSTEM OFFLINE';
+            statusDot.className = 'h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse';
+            statusEl.classList.remove('text-cyber-accent');
+            statusEl.classList.add('text-gray-400');
         });
 
         socket.on('new_incident', (incident) => {
-            console.log('New Neural Feed:', incident);
             lastIncidentCoords = [incident.latitude, incident.longitude];
             addIncidentToUI(incident);
             addMarkerToMap(incident);
@@ -215,7 +272,7 @@
             }
         });
 
-        // --- Override Trigger ---
+        // --- Controller Logic ---
         overrideBtn.addEventListener('click', () => {
             isEmergencyMode = !isEmergencyMode;
 
@@ -223,57 +280,43 @@
                 document.body.classList.add('emergency-active');
                 bannerEl.classList.remove('hidden');
                 overrideBtn.innerHTML = 'CANCEL OVERRIDE';
-                overrideBtn.classList.replace('bg-cyber-danger/20', 'bg-white/20');
-                overrideBtn.classList.replace('text-cyber-danger', 'text-white');
+                overrideBtn.className = 'bg-white/10 hover:bg-white/20 border border-white/50 text-white px-6 py-1.5 text-[10px] font-tactical tracking-widest transition-all rounded-sm backdrop-blur-sm';
                 drawRescuePath();
             } else {
                 document.body.classList.remove('emergency-active');
                 bannerEl.classList.add('hidden');
                 overrideBtn.innerHTML = 'EMERGENCY OVERRIDE';
-                overrideBtn.classList.replace('bg-white/20', 'bg-cyber-danger/20');
-                overrideBtn.classList.replace('text-white', 'text-cyber-danger');
+                overrideBtn.className = 'bg-cyber-danger/10 hover:bg-cyber-danger/30 border border-cyber-danger/50 text-cyber-danger px-6 py-1.5 text-[10px] font-tactical tracking-widest transition-all rounded-sm backdrop-blur-sm';
                 if (rescuePathLayer) map.removeLayer(rescuePathLayer);
             }
         });
 
-        // --- Functions ---
-        function drawRescuePath() {
-            if (rescuePathLayer) map.removeLayer(rescuePathLayer);
-            if (!lastIncidentCoords) return;
-
-            rescuePathLayer = L.polyline([SIAM_COORDS, lastIncidentCoords], {
-                color: '#39FF14',
-                weight: 5,
-                opacity: 0.8,
-                dashArray: '10, 10',
-                lineJoin: 'round'
-            }).addTo(map);
-
-            map.fitBounds(rescuePathLayer.getBounds(), { padding: [100, 100] });
-        }
-
         function addIncidentToUI(incident) {
-            // Remove placeholder
-            if (incidentList.querySelector('p')) incidentList.innerHTML = '';
+            if (incidentList.querySelector('.grayscale')) incidentList.innerHTML = '';
 
             const isHigh = incident.priority === 'HIGH';
             const card = document.createElement('div');
-            card.className = `p-3 border-l-2 bg-cyber-bg/40 border-cyber-border hover:bg-cyber-bg/80 transition-all ${isHigh ? 'border-l-cyber-danger' : 'border-l-cyber-accent'}`;
+            card.className = `incident-card p-5 border-b border-white/5 cursor-pointer relative overflow-hidden group`;
 
             card.innerHTML = `
-                <div class="flex justify-between items-start mb-1">
-                    <span class="text-[10px] font-tactical ${isHigh ? 'text-cyber-danger' : 'text-cyber-accent'}">
-                        ${incident.type || 'UNCLEAR'}
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-[9px] font-tactical px-2 py-0.5 rounded-sm ${isHigh ? 'bg-cyber-danger/20 text-cyber-danger border border-cyber-danger/30' : 'bg-cyber-accent/20 text-cyber-accent border border-cyber-accent/30'}">
+                        ${incident.type || 'SYSTEM'}
                     </span>
-                    <span class="text-[9px] text-gray-500 uppercase">
-                        ${new Date(incident.createdAt).toLocaleTimeString()}
+                    <span class="text-[9px] font-tactical text-white/30 truncate ml-4">
+                        ${new Date(incident.createdAt).toLocaleTimeString([], { hour12: false })}
                     </span>
                 </div>
-                <p class="text-sm text-gray-300 leading-tight">${incident.text}</p>
-                <div class="mt-2 text-[9px] text-gray-600 break-all font-mono">
-                    ID: ${incident.id.substring(0, 8)}...
+                <p class="text-xs text-white/80 leading-relaxed font-light">${incident.text}</p>
+                <div class="mt-3 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span class="text-[8px] font-mono text-white/20">UUID: ${incident.id.substring(0, 8)}</span>
+                    <span class="text-[8px] font-tactical text-cyber-accent">LOCATE ></span>
                 </div>
             `;
+
+            card.onclick = () => {
+                map.setView([incident.latitude, incident.longitude], 15);
+            };
 
             incidentList.prepend(card);
         }
@@ -283,26 +326,66 @@
 
             const markerIcon = L.divIcon({
                 className: 'custom-div-icon',
-                html: `<div class="${isHigh ? 'pulse-marker' : 'bg-cyber-accent h-3 w-3 rounded-full border border-white'}"></div>`,
-                iconSize: [12, 12],
-                iconAnchor: [6, 6]
+                html: isHigh ? `<div class="pulse-marker"></div>` : `<div class="h-3 w-3 rounded-full bg-cyber-accent border-2 border-white shadow-lg"></div>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
             });
 
             const marker = L.marker([incident.latitude, incident.longitude], { icon: markerIcon }).addTo(map);
 
-            marker.bindPopup(`
-                <div class="bg-cyber-panel text-white p-1 rounded border border-cyber-border">
-                    <div class="font-tactical text-[10px] mb-1">${incident.type}</div>
-                    <div class="text-xs">${incident.text}</div>
+            const popupContent = `
+                <div class="glass-panel p-3 rounded shadow-2xl border-white/20 text-white min-w-[200px]">
+                    <div class="text-[9px] font-tactical text-cyber-accent mb-2 tracking-[0.2em] border-b border-white/10 pb-1">${incident.type}</div>
+                    <div class="text-[11px] leading-relaxed mb-2">${incident.text}</div>
+                    <div class="flex justify-between items-center mt-3">
+                        <span class="text-[8px] text-white/40">LAT: ${incident.latitude.toFixed(4)}</span>
+                        <span class="text-[8px] text-white/40">LNG: ${incident.longitude.toFixed(4)}</span>
+                    </div>
                 </div>
-            `, { closeButton: false });
+            `;
+
+            marker.bindPopup(popupContent, {
+                closeButton: false,
+                className: 'cyber-popup',
+                offset: [0, -10]
+            });
 
             if (isHigh) {
                 map.panTo([incident.latitude, incident.longitude]);
                 marker.openPopup();
             }
         }
+
+        function drawRescuePath() {
+            if (rescuePathLayer) map.removeLayer(rescuePathLayer);
+            if (!lastIncidentCoords) return;
+
+            rescuePathLayer = L.polyline([SIAM_COORDS, lastIncidentCoords], {
+                color: '#39FF14',
+                weight: 3,
+                opacity: 0.6,
+                dashArray: '5, 10',
+                lineCap: 'round'
+            }).addTo(map);
+
+            map.fitBounds(rescuePathLayer.getBounds(), { padding: [100, 100], animate: true });
+        }
     </script>
+    <style>
+        .leaflet-popup-content-wrapper,
+        .leaflet-popup-tip {
+            background: transparent !important;
+            box-shadow: none !important;
+            border: none !important;
+        }
+
+        .leaflet-popup-content {
+            margin: 0 !important;
+        }
+    </style>
+</body>
+
+</html>
 </body>
 
 </html>
