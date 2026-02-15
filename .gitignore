@@ -3,5 +3,14 @@ dist/
 .env
 *.log
 .DS_Store
-database.sqlite
-database.sqlite-journal
+*.sqlite
+*.sqlite-journal
+
+# Agent Hub specific
+overwatch-agents/reports/
+overwatch-agents/latest_email_preview.txt
+overwatch-agents/verify-*.js
+overwatch-agents/test-*.js
+overwatch-agents/simulate-*.js
+overwatch-agents/test_webhook.js
+overwatch-agents/mock_agent.js

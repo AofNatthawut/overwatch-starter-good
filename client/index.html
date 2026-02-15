@@ -140,6 +140,48 @@
             background-color: rgba(255, 255, 255, 0.05);
             transform: translateX(4px);
         }
+
+        @keyframes blink-circle {
+            0% {
+                fill-opacity: 0.3;
+            }
+
+            50% {
+                fill-opacity: 0.1;
+            }
+
+            100% {
+                fill-opacity: 0.3;
+            }
+        }
+
+        .danger-circle {
+            animation: blink-circle 1s infinite;
+        }
+
+        /* Mission 16: DEFCON-1 Mode */
+        @keyframes defcon-pulse {
+            0% {
+                background-color: #0c1117;
+            }
+
+            50% {
+                background-color: #450a0a;
+            }
+
+            100% {
+                background-color: #0c1117;
+            }
+        }
+
+        .mode-defcon-1 {
+            animation: defcon-pulse 2s infinite;
+        }
+
+        .mode-defcon-1 aside,
+        .mode-defcon-1 .HUD-element-non-essential {
+            display: none !important;
+        }
     </style>
 </head>
 
@@ -237,6 +279,7 @@
         let lastIncidentCoords = null;
         let rescuePathLayer = null;
         let isEmergencyMode = false;
+        let activeEmergencies = 0; // Mission 16: Global counter for HIGH priority incidents
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -266,6 +309,18 @@
             lastIncidentCoords = [incident.latitude, incident.longitude];
             addIncidentToUI(incident);
             addMarkerToMap(incident);
+
+            // Mission 16: DEFCON-1 Logic
+            if (incident.priority === 'HIGH') {
+                activeEmergencies++;
+                if (activeEmergencies >= 3) {
+                    document.body.classList.add('mode-defcon-1');
+                    // Add a special warning to the banner if emergency mode is also active
+                    if (isEmergencyMode) {
+                        bannerEl.querySelector('span').innerText = 'CRITICAL: DEFCON-1 - MASS CASUALTY EVENT';
+                    }
+                }
+            }
 
             if (isEmergencyMode) {
                 drawRescuePath();
@@ -333,10 +388,31 @@
 
             const marker = L.marker([incident.latitude, incident.longitude], { icon: markerIcon }).addTo(map);
 
+            // Mission 14: Danger Zone Circle
+            if (isHigh) {
+                const circle = L.circle([incident.latitude, incident.longitude], {
+                    color: 'red',
+                    fillColor: '#f03',
+                    fillOpacity: 0.3,
+                    radius: 500
+                }).addTo(map);
+
+                // Add blinking class to the SVG element
+                if (circle.getElement()) {
+                    circle.getElement().classList.add('danger-circle');
+                }
+
+                // Auto-remove after 10 seconds
+                setTimeout(() => {
+                    map.removeLayer(circle);
+                }, 10000);
+            }
+
             const popupContent = `
                 <div class="glass-panel p-3 rounded shadow-2xl border-white/20 text-white min-w-[200px]">
                     <div class="text-[9px] font-tactical text-cyber-accent mb-2 tracking-[0.2em] border-b border-white/10 pb-1">${incident.type}</div>
                     <div class="text-[11px] leading-relaxed mb-2">${incident.text}</div>
+                    <video src='https://www.w3schools.com/html/mov_bbb.mp4' autoplay loop muted style='width: 100px; margin-top: 10px; border-radius: 4px;'></video>
                     <div class="flex justify-between items-center mt-3">
                         <span class="text-[8px] text-white/40">LAT: ${incident.latitude.toFixed(4)}</span>
                         <span class="text-[8px] text-white/40">LNG: ${incident.longitude.toFixed(4)}</span>

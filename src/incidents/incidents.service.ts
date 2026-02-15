@@ -30,6 +30,16 @@ export class IncidentsService {
         });
         const saved = await this.incidentsRepository.save(incident);
         this.eventsGateway.emitNewIncident(saved);
+
+        // Mission 9: The Transmitter - Fire and Forget webhook for HIGH priority
+        if (saved.priority === 'HIGH') {
+            fetch('http://localhost:4000/dispatch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...saved, timestamp: new Date() }),
+            }).catch((err) => console.error('[Agent Hub Webhook Error]', err.message));
+        }
+
         return saved;
     }
 

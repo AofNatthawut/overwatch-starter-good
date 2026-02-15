@@ -1,0 +1,11 @@
+node_modules/
+.env
+reports/
+*.sqlite
+server.log
+latest_email_preview.txt
+verify-*.js
+test-*.js
+simulate-*.js
+test_webhook.js
+mock_agent.js

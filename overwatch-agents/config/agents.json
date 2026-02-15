@@ -1,0 +1,16 @@
+{
+    "agents": [
+        {
+            "id": "text-analyzer",
+            "name": "Text Analyzer Agent",
+            "endpoint": "http://localhost:3001/task",
+            "capabilities": ["text_analysis", "sentiment", "summary"]
+        },
+        {
+            "id": "image-processor",
+            "name": "Image Processor Agent",
+            "endpoint": "http://localhost:3002/task",
+            "capabilities": ["image_processing", "ocr", "resize"]
+        }
+    ]
+}

@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  core:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=file:../data/db.sqlite
+    networks:
+      - overwatch-network
+
+  hub:
+    build: ./overwatch-agents
+    ports:
+      - "4000:4000"
+    environment:
+      - CORE_URL=http://core:3000
+    depends_on:
+      - core
+    networks:
+      - overwatch-network
+
+networks:
+  overwatch-network:
+    driver: bridge
